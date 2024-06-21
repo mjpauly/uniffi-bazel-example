@@ -1,0 +1,100 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 289740b1c..96303102c 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -74,7 +74,12 @@ pub fn build_foreign_language_testcases(tokens: TokenStream) -> TokenStream {
+ #[proc_macro]
+ pub fn setup_scaffolding(tokens: TokenStream) -> TokenStream {
+     let namespace = match syn::parse_macro_input!(tokens as Option<LitStr>) {
+-        Some(lit_str) => lit_str.value(),
++        Some(lit_str) => {
++            // set the module path to the same as the namespace to avoid errors
++            // caused by failure to access cargo build environment
++            util::set_mod_path(lit_str.value());
++            lit_str.value()
++        },
+         None => match util::mod_path() {
+             Ok(v) => v,
+             Err(e) => return e.into_compile_error().into(),
+diff --git a/src/util.rs b/src/util.rs
+index 6f6214208..cd5ed53d6 100644
+--- a/src/util.rs
++++ b/src/util.rs
+@@ -11,6 +11,7 @@ use syn::{
+     parse::{Parse, ParseStream},
+     Attribute, Expr, Lit, Token,
+ };
++use once_cell::sync::OnceCell;
+ 
+ pub fn manifest_path() -> Result<PathBuf, String> {
+     let manifest_dir =
+@@ -19,61 +20,17 @@ pub fn manifest_path() -> Result<PathBuf, String> {
+     Ok(StdPath::new(&manifest_dir).join("Cargo.toml"))
+ }
+ 
+-#[cfg(not(feature = "nightly"))]
+-pub fn mod_path() -> syn::Result<String> {
+-    // Without the nightly feature and TokenStream::expand_expr, just return the crate name
+-
+-    use fs_err as fs;
+-    use once_cell::sync::Lazy;
+-    use serde::Deserialize;
+-
+-    #[derive(Deserialize)]
+-    struct CargoToml {
+-        package: Package,
+-        #[serde(default)]
+-        lib: Lib,
+-    }
+-
+-    #[derive(Deserialize)]
+-    struct Package {
+-        name: String,
+-    }
+-
+-    #[derive(Default, Deserialize)]
+-    struct Lib {
+-        name: Option<String>,
+-    }
+-
+-    static LIB_CRATE_MOD_PATH: Lazy<Result<String, String>> = Lazy::new(|| {
+-        let file = manifest_path()?;
+-        let cargo_toml_bytes = fs::read(file).map_err(|e| e.to_string())?;
+-
+-        let cargo_toml = toml::from_slice::<CargoToml>(&cargo_toml_bytes)
+-            .map_err(|e| format!("Failed to parse `Cargo.toml`: {e}"))?;
+-
+-        let lib_crate_name = cargo_toml
+-            .lib
+-            .name
+-            .unwrap_or_else(|| cargo_toml.package.name.replace('-', "_"));
++static MOD_PATH: OnceCell<String> = OnceCell::new();
+ 
+-        Ok(lib_crate_name)
+-    });
+-
+-    LIB_CRATE_MOD_PATH
+-        .clone()
+-        .map_err(|e| syn::Error::new(Span::call_site(), e))
++pub fn set_mod_path(path: String) {
++    MOD_PATH.set(path).unwrap();
+ }
+ 
+-#[cfg(feature = "nightly")]
+ pub fn mod_path() -> syn::Result<String> {
+-    use proc_macro::TokenStream;
+-
+-    let module_path_invoc = TokenStream::from(quote! { ::core::module_path!() });
+-    // We ask the compiler what `module_path!()` expands to here.
+-    // This is a nightly feature, tracked at https://github.com/rust-lang/rust/issues/90765
+-    let expanded_module_path = TokenStream::expand_expr(&module_path_invoc)
+-        .map_err(|e| syn::Error::new(Span::call_site(), e))?;
+-    Ok(syn::parse::<syn::LitStr>(expanded_module_path)?.value())
++    MOD_PATH.get().cloned().ok_or(syn::Error::new(
++        Span::call_site(),
++        "Mod path not set. Call setup_scaffolding before any other proc macros."
++    ))
+ }
+ 
+ pub fn try_read_field(f: &syn::Field) -> TokenStream {
+

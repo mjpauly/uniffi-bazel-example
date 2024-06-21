@@ -1,0 +1,14 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index f8a0d8499..814de874b 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -155,7 +155,7 @@ fn get_cargo_metadata() -> Metadata {
+ }
+ 
+ fn get_cargo_build_messages() -> Vec<Message> {
+-    let mut child = Command::new(env!("CARGO"))
++    let mut child = Command::new(env::var("CARGO").unwrap())
+         .arg("build")
+         .arg("--message-format=json")
+         .stdout(Stdio::piped())
+

@@ -1,0 +1,87 @@
+diff --git a/src/library_mode.rs b/src/library_mode.rs
+index 47dfc7550..2a8659f48 100644
+--- a/src/library_mode.rs
++++ b/src/library_mode.rs
+@@ -42,23 +42,15 @@ pub fn generate_bindings<T: BindingGenerator + ?Sized>(
+     out_dir: &Utf8Path,
+     try_format_code: bool,
+ ) -> Result<Vec<Component<T::Config>>> {
+-    let cargo_metadata = MetadataCommand::new()
+-        .exec()
+-        .context("error running cargo metadata")?;
+-
+-    let mut components = find_components(&cargo_metadata, library_path)?
++    let mut components = find_components(library_path)?
+         .into_iter()
+-        .map(|(ci, package)| {
+-            let crate_root = package
+-                .manifest_path
+-                .parent()
+-                .context("manifest path has no parent")?;
++        .map(|(ci, name)| {
+             let config = binding_generator
+-                .new_config(&load_initial_config(crate_root, config_file_override)?)?;
++                .new_config(&load_initial_config(library_path, config_file_override)?)?;
+             Ok(Component {
+                 ci,
+                 config,
+-                package_name: Some(package.name),
++                package_name: Some(name),
+             })
+         })
+         .collect::<Result<Vec<_>>>()?;
+@@ -102,9 +94,8 @@ pub fn calc_cdylib_name(library_path: &Utf8Path) -> Option<&str> {
+ }
+ 
+ fn find_components(
+-    cargo_metadata: &cargo_metadata::Metadata,
+     library_path: &Utf8Path,
+-) -> Result<Vec<(ComponentInterface, Package)>> {
++) -> Result<Vec<(ComponentInterface, String)>> { // ci, crate name
+     let items = macro_metadata::extract_from_library(library_path)?;
+     let mut metadata_groups = create_metadata_groups(&items);
+     group_metadata(&mut metadata_groups, items)?;
+@@ -113,38 +104,16 @@ fn find_components(
+     // of external types makes this tricky to do as we finalize the group.
+     let mut udl_items: HashMap<String, MetadataGroup> = HashMap::new();
+ 
+-    for group in metadata_groups.values() {
+-        let package = find_package_by_crate_name(cargo_metadata, &group.namespace.crate_name)?;
+-        let crate_root = package
+-            .manifest_path
+-            .parent()
+-            .context("manifest path has no parent")?;
+-        let crate_name = group.namespace.crate_name.clone();
+-        if let Some(mut metadata_group) = load_udl_metadata(group, crate_root, &crate_name)? {
+-            // fixup the items.
+-            metadata_group.items = metadata_group
+-                .items
+-                .into_iter()
+-                .map(|item| fixup_external_type(item, &metadata_groups))
+-                // some items are both in UDL and library metadata. For many that's fine but
+-                // uniffi-traits aren't trivial to compare meaning we end up with dupes.
+-                // We filter out such problematic items here.
+-                .filter(|item| !matches!(item, Metadata::UniffiTrait { .. }))
+-                .collect();
+-            udl_items.insert(crate_name, metadata_group);
+-        };
+-    }
+-
+     metadata_groups
+         .into_values()
+         .map(|group| {
+-            let package = find_package_by_crate_name(cargo_metadata, &group.namespace.crate_name)?;
+-            let mut ci = ComponentInterface::new(&group.namespace.crate_name);
+-            if let Some(metadata) = udl_items.remove(&group.namespace.crate_name) {
++            let crate_name = group.namespace.crate_name.clone();
++            let mut ci = ComponentInterface::new(&crate_name);
++            if let Some(metadata) = udl_items.remove(&crate_name) {
+                 ci.add_metadata(metadata)?;
+             };
+             ci.add_metadata(group)?;
+-            Ok((ci, package))
++            Ok((ci, crate_name))
+         })
+         .collect()
+ }
+
