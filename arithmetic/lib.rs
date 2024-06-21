@@ -39,3 +39,12 @@ fn equal(a: u64, b: u64) -> bool {
 }
 
 type Result<T, E = ArithmeticError> = std::result::Result<T, E>;
+
+// test an export from a subcrate
+
+use subcrate::A;
+
+#[uniffi::export]
+fn hi() -> A {
+    A { a: 64 }
+}

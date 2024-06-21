@@ -13,3 +13,7 @@ assert sub(4, 2) == 2
 assert div(8, 4) == 2
 assert equal(2, 2)
 assert not equal(4, 8)
+
+# test the subcrate export
+
+assert hi().a == 64

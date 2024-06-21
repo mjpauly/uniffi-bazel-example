@@ -8,6 +8,7 @@ rust_shared_library(
     deps = [
         "@crate_index//:thiserror",
         "@crate_index//:uniffi",
+        "//arithmetic/subcrate",
     ],
 )
 
@@ -24,15 +25,24 @@ copy_file(
 genrule(
     name = "gen_py",
     srcs = [":arithmetic_dylib"],
-    outs = ["__init__.py"],
+    outs = [
+        "__init__.py",
+        "subcrate.py",
+    ],
+    tools = ["//uniffi_cli"],
     cmd = '''
+# generate our bindings in the current directory
+
 $(location //uniffi_cli) generate --library \
     $(location :arithmetic_dylib) \
     --language python \
     --out-dir=.
+
+# copy the generated files to the output locations
+
 cp arithmetic.py $(location __init__.py)
+cp subcrate.py $(location subcrate.py)
     ''',
-    tools = ["//uniffi_cli"],
 )
 
 # top-level python interface to the arithmetic Rust library
