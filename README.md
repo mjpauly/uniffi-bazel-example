@@ -34,6 +34,9 @@ fn my_ffi_fn() {
 ...
 ```
 
+(Complexity has been added to exercise the example further. The following
+discussion corresponds to the repo at 439c657.)
+
 On the Rust side, we build a shared library that we can load from other
 languages:
 

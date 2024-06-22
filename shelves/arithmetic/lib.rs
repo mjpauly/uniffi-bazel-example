@@ -7,6 +7,8 @@
 // This must come before other uniffi proc macros, due to how uniffi is patched.
 uniffi::setup_scaffolding!("arithmetic");
 
+extern crate trig;
+
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum ArithmeticError {
     #[error("Integer overflow on an operation with {a} and {b}")]

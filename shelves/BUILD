@@ -3,20 +3,20 @@ load("@rules_python//python:defs.bzl", "py_library")
 load("@rules_rust//rust:defs.bzl", "rust_shared_library")
 
 rust_shared_library(
-    name = "arithmetic_rs",
+    name = "shelves_rs",
     srcs = ["lib.rs"],
     deps = [
         "@crate_index//:thiserror",
         "@crate_index//:uniffi",
-        "//arithmetic/subcrate",
+        "//shelves/arithmetic",
     ],
 )
 
-# rename libarithmetic_rs.dylib to libarithmetic.dylib
+# rename libshelves_rs.dylib to libshelves.dylib
 copy_file(
-    name = "arithmetic_dylib",
-    src = ":arithmetic_rs",
-    out = "libarithmetic.dylib",
+    name = "shelves_dylib",
+    src = ":shelves_rs",
+    out = "libshelves.dylib",
     allow_symlink = True,
 )
 
@@ -24,9 +24,11 @@ copy_file(
 # uniffi left in the dylib
 genrule(
     name = "gen_py",
-    srcs = [":arithmetic_dylib"],
+    srcs = [":shelves_dylib"],
     outs = [
         "__init__.py",
+        "arithmetic.py",
+        "trig.py",
         "subcrate.py",
     ],
     tools = ["//uniffi_cli"],
@@ -34,21 +36,23 @@ genrule(
 # generate our bindings in the current directory
 
 $(location //uniffi_cli) generate --library \
-    $(location :arithmetic_dylib) \
+    $(location :shelves_dylib) \
     --language python \
     --out-dir=.
 
 # copy the generated files to the output locations
 
-cp arithmetic.py $(location __init__.py)
+cp shelves.py $(location __init__.py)
+cp arithmetic.py $(location arithmetic.py)
+cp trig.py $(location trig.py)
 cp subcrate.py $(location subcrate.py)
     ''',
 )
 
-# top-level python interface to the arithmetic Rust library
+# top-level python interface to the shelves Rust library
 py_library(
-    name = "arithmetic",
+    name = "shelves",
     srcs = [":gen_py"],
-    data = ["arithmetic_dylib"],
+    data = ["shelves_dylib"],
     visibility = ["//visibility:public"],
 )

@@ -4,6 +4,6 @@ py_test(
     name = "test_arithmetic",
     srcs = [":test_arithmetic.py"],
     deps = [
-        "//arithmetic",
+        "//shelves",
     ],
 )
